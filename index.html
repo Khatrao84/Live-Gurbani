@@ -33,7 +33,7 @@
     }
     #channelName {
       position: absolute;
-      bottom: 60px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(0,0,0,0.6);
@@ -44,29 +44,12 @@
       opacity: 0;
       transition: opacity 1s ease-in-out;
     }
-    #nextStreamBtn {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      background: rgba(255,255,255,0.15);
-      color: white;
-      border: 1px solid white;
-      padding: 8px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-      z-index: 3;
-    }
-    #nextStreamBtn:hover {
-      background: rgba(255,255,255,0.3);
-    }
   </style>
 </head>
 <body>
   <iframe id="videoFrame" allow="autoplay; encrypted-media" allowfullscreen></iframe>
   <div id="overlay"></div>
   <div id="channelName"></div>
-  <button id="nextStreamBtn">Next Channel</button>
 
   <script>
     let currentChannel = 0;
@@ -80,7 +63,7 @@
     ];
 
     function loadChannel(index) {
-      currentChannel = index % allChannels.length;
+      currentChannel = (index + allChannels.length) % allChannels.length;
       const channel = allChannels[currentChannel];
 
       const url = `https://www.youtube.com/embed/live_stream?channel=${channel.id}&autoplay=1&mute=1&controls=0&playsinline=1`;
@@ -95,7 +78,6 @@
       showChannelName(channel.name, true);
     }
 
-    // Show channel name (fade after 8s)
     function showChannelName(text, fade = true) {
       const nameEl = document.getElementById("channelName");
       nameEl.innerText = text;
@@ -114,18 +96,13 @@
       loadChannel(currentChannel + 1);
     };
 
-    // Button → next channel
-    document.getElementById("nextStreamBtn").onclick = () => {
-      loadChannel(currentChannel + 1);
-    };
-
-    // Arrow keys
+    // Arrow keys → left/right navigation
     document.addEventListener("keydown", (e) => {
       if (e.key === "ArrowRight") {
         loadChannel(currentChannel + 1);
       }
       if (e.key === "ArrowLeft") {
-        loadChannel(currentChannel - 1 + allChannels.length);
+        loadChannel(currentChannel - 1);
       }
     });
 
@@ -137,5 +114,3 @@
   </script>
 </body>
 </html>
-
-

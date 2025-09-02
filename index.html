@@ -33,6 +33,18 @@
       z-index: 0;
     }
 
+    /* Video element for HLS streams */
+    #hls-video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+      display: none;
+    }
+
     /* Transparent overlay to capture clicks */
     #overlay {
       position: absolute;
@@ -65,33 +77,96 @@
       bottom: 0; /* slide up into view */
       opacity: 1;
     }
+
+    /* Loading indicator */
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 24px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 20px 30px;
+      border-radius: 10px;
+      z-index: 4;
+      display: none;
+    }
   </style>
+  
+  <!-- HLS.js library for playing M3U8 streams -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
   <div id="container">
     <iframe id="stream" allow="autoplay; fullscreen" allowfullscreen></iframe>
+    <video id="hls-video" controls></video>
     <div id="overlay"></div>
     <div id="channelName"></div>
+    <div id="loading">Loading channel...</div>
   </div>
 
   <script>
-    // ✅ Your 5 channels with real names
+    // ✅ Your 6 channels with real names (added DD Punjabi as the 6th channel)
     const CHANNELS = [
-      { name: "1. Patna Sahib LIVE", url: "https://www.youtube.com/embed/live_stream?channel=UC3nqw1kd4AK1q9e68YUoLDQ&autoplay=1" },
-      { name: "2. Amritsar Sahib LIVE", url: "https://www.youtube.com/embed/live_stream?channel=UCQLEbraENUGWh6p1Rv664rQ&autoplay=1" }, 
-      { name: "3. Hazur Sahib LIVE", url: "https://www.youtube.com/embed/live_stream?channel=UCuerQ47I9Y2qxr4eIopxbYw&autoplay=1" },
-      { name: "4. Fatehgarh Sahib LIVE", url: "https://www.youtube.com/embed/live_stream?channel=UCudVHqnOekwcvpzNpY8_ERw&autoplay=1" },
-     { name: "5. Chardikla Time TV", url: "https://www.yupptv.com/yupptvnew/channels/chardikala-time-tv/live/embed" }
+      { name: "1. Patna Sahib LIVE", url: "https://www.youtube.com/embed/live_stream?channel=UC3nqw1kd4AK1q9e68YUoLDQ&autoplay=1", type: "youtube" },
+      { name: "2. Amritsar Sahib LIVE", url: "https://www.youtube.com/embed/live_stream?channel=UCQLEbraENUGWh6p1Rv664rQ&autoplay=1", type: "youtube" }, 
+      { name: "3. Hazur Sahib LIVE", url: "https://www.youtube.com/embed/live_stream?channel=UCuerQ47I9Y2qxr4eIopxbYw&autoplay=1", type: "youtube" },
+      { name: "4. Fatehgarh Sahib LIVE", url: "https://www.youtube.com/embed/live_stream?channel=UCudVHqnOekwcvpzNpY8_ERw&autoplay=1", type: "youtube" },
+      { name: "5. Chardikla Time TV", url: "https://www.yupptv.com/yupptvnew/channels/chardikala-time-tv/live/embed", type: "iframe" },
+      { name: "6. DD Punjabi", url: "https://d3eyhgoylams0m.cloudfront.net/v1/manifest/93ce20f0f52760bf38be911ff4c91ed02aa2fd92/ed7bd2c7-8d10-4051-b397-2f6b90f99acb/20c8ad14-a158-4a42-8889-e032d070856e/2.m3u8", type: "hls" }
     ];
 
     let currentChannel = 0;
     const IFRAME = document.getElementById('stream');
+    const HLS_VIDEO = document.getElementById('hls-video');
     const channelNameBox = document.getElementById('channelName');
+    const loadingIndicator = document.getElementById('loading');
     let hideTimeout;
+    let hls = new Hls();
 
     function loadChannel(index) {
-      IFRAME.src = CHANNELS[index].url;
-      showChannelName(CHANNELS[index].name);
+      loadingIndicator.style.display = 'block';
+      
+      // Hide both players initially
+      IFRAME.style.display = 'none';
+      HLS_VIDEO.style.display = 'none';
+      
+      const channel = CHANNELS[index];
+      
+      if (channel.type === 'youtube' || channel.type === 'iframe') {
+        // Use iframe for YouTube and other iframe-based streams
+        IFRAME.style.display = 'block';
+        IFRAME.src = channel.url;
+        HLS_VIDEO.pause();
+        
+        // Hide loading when iframe loads
+        IFRAME.onload = function() {
+          loadingIndicator.style.display = 'none';
+        };
+      } else if (channel.type === 'hls') {
+        // Use HLS.js for M3U8 streams
+        HLS_VIDEO.style.display = 'block';
+        IFRAME.src = '';
+        
+        if (Hls.isSupported()) {
+          hls.loadSource(channel.url);
+          hls.attachMedia(HLS_VIDEO);
+          hls.on(Hls.Events.MANIFEST_PARSED, function() {
+            HLS_VIDEO.play();
+            loadingIndicator.style.display = 'none';
+          });
+        } else if (HLS_VIDEO.canPlayType('application/vnd.apple.mpegurl')) {
+          // For Safari which supports native HLS
+          HLS_VIDEO.src = channel.url;
+          HLS_VIDEO.addEventListener('loadedmetadata', function() {
+            HLS_VIDEO.play();
+            loadingIndicator.style.display = 'none';
+          });
+        }
+      }
+      
+      showChannelName(channel.name);
     }
 
     function showChannelName(name) {
@@ -118,7 +193,7 @@
         nextChannel();
       } else if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") {
         prevChannel();
-      } else if (/^[1-5]$/.test(e.key)) {
+      } else if (/^[1-6]$/.test(e.key)) {
         jumpToChannel(parseInt(e.key) - 1);
       }
     });
@@ -137,7 +212,6 @@
       currentChannel = index;
       loadChannel(currentChannel);
     }
-
   </script>
 </body>
 </html>

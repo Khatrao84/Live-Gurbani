@@ -49,8 +49,20 @@
       display: none;
     }
 
-    /* Hide video controls for WebOS */
+    /* Hide all video controls for WebOS */
     #hls-video::-webkit-media-controls {
+      display: none !important;
+    }
+    
+    #hls-video::-webkit-media-controls-panel {
+      display: none !important;
+    }
+    
+    #hls-video::-webkit-media-controls-play-button {
+      display: none !important;
+    }
+    
+    #hls-video::-webkit-media-controls-start-playback-button {
       display: none !important;
     }
 
@@ -87,9 +99,6 @@
       opacity: 1;
     }
   </style>
-  
-  <!-- HLS.js library for playing M3U8 streams -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
   <div id="container">
@@ -115,7 +124,6 @@
     const HLS_VIDEO = document.getElementById('hls-video');
     const channelNameBox = document.getElementById('channelName');
     let hideTimeout;
-    let hls = new Hls({ enableWorker: false }); // Disable worker for WebOS compatibility
 
     // Hide video controls completely
     HLS_VIDEO.controls = false;
@@ -134,29 +142,23 @@
         // Use iframe for YouTube and other iframe-based streams
         IFRAME.style.display = 'block';
         IFRAME.src = channel.url;
-        if (hls) hls.detachMedia();
         HLS_VIDEO.pause();
       } else if (channel.type === 'hls') {
-        // Use HLS.js for M3U8 streams
+        // Use native video element for HLS streams (better WebOS compatibility)
         HLS_VIDEO.style.display = 'block';
         IFRAME.src = '';
         
-        if (Hls.isSupported()) {
-          hls.loadSource(channel.url);
-          hls.attachMedia(HLS_VIDEO);
-          hls.on(Hls.Events.MANIFEST_PARSED, function() {
-            HLS_VIDEO.play().catch(e => {
-              console.log("Autoplay prevented:", e);
-            });
-          });
-        } else if (HLS_VIDEO.canPlayType('application/vnd.apple.mpegurl')) {
-          // For Safari which supports native HLS
+        // For WebOS TV, use native HLS support
+        if (HLS_VIDEO.canPlayType('application/vnd.apple.mpegurl')) {
           HLS_VIDEO.src = channel.url;
           HLS_VIDEO.addEventListener('loadedmetadata', function() {
             HLS_VIDEO.play().catch(e => {
-              console.log("Autoplay prevented:", e);
+              console.log("Autoplay prevented, trying with user gesture");
             });
           });
+        } else {
+          // Fallback for browsers without native HLS support
+          console.log("HLS not natively supported");
         }
       }
       

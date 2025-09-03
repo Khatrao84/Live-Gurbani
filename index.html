@@ -15,6 +15,10 @@
       background-color: black;
       font-family: sans-serif;
       overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     #container {
@@ -43,6 +47,11 @@
       object-fit: cover;
       z-index: 1;
       display: none;
+    }
+
+    /* Hide video controls for WebOS */
+    #hls-video::-webkit-media-controls {
+      display: none !important;
     }
 
     /* Transparent overlay to capture clicks */
@@ -77,21 +86,6 @@
       bottom: 0; /* slide up into view */
       opacity: 1;
     }
-
-    /* Loading indicator */
-    #loading {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: white;
-      font-size: 24px;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 20px 30px;
-      border-radius: 10px;
-      z-index: 4;
-      display: none;
-    }
   </style>
   
   <!-- HLS.js library for playing M3U8 streams -->
@@ -100,10 +94,9 @@
 <body>
   <div id="container">
     <iframe id="stream" allow="autoplay; fullscreen" allowfullscreen></iframe>
-    <video id="hls-video" controls></video>
+    <video id="hls-video" playsinline></video>
     <div id="overlay"></div>
     <div id="channelName"></div>
-    <div id="loading">Loading channel...</div>
   </div>
 
   <script>
@@ -121,13 +114,16 @@
     const IFRAME = document.getElementById('stream');
     const HLS_VIDEO = document.getElementById('hls-video');
     const channelNameBox = document.getElementById('channelName');
-    const loadingIndicator = document.getElementById('loading');
     let hideTimeout;
-    let hls = new Hls();
+    let hls = new Hls({ enableWorker: false }); // Disable worker for WebOS compatibility
+
+    // Hide video controls completely
+    HLS_VIDEO.controls = false;
+    HLS_VIDEO.addEventListener('contextmenu', function(e) {
+      e.preventDefault(); // Disable right-click menu on video
+    }, false);
 
     function loadChannel(index) {
-      loadingIndicator.style.display = 'block';
-      
       // Hide both players initially
       IFRAME.style.display = 'none';
       HLS_VIDEO.style.display = 'none';
@@ -138,12 +134,8 @@
         // Use iframe for YouTube and other iframe-based streams
         IFRAME.style.display = 'block';
         IFRAME.src = channel.url;
+        if (hls) hls.detachMedia();
         HLS_VIDEO.pause();
-        
-        // Hide loading when iframe loads
-        IFRAME.onload = function() {
-          loadingIndicator.style.display = 'none';
-        };
       } else if (channel.type === 'hls') {
         // Use HLS.js for M3U8 streams
         HLS_VIDEO.style.display = 'block';
@@ -153,15 +145,17 @@
           hls.loadSource(channel.url);
           hls.attachMedia(HLS_VIDEO);
           hls.on(Hls.Events.MANIFEST_PARSED, function() {
-            HLS_VIDEO.play();
-            loadingIndicator.style.display = 'none';
+            HLS_VIDEO.play().catch(e => {
+              console.log("Autoplay prevented:", e);
+            });
           });
         } else if (HLS_VIDEO.canPlayType('application/vnd.apple.mpegurl')) {
           // For Safari which supports native HLS
           HLS_VIDEO.src = channel.url;
           HLS_VIDEO.addEventListener('loadedmetadata', function() {
-            HLS_VIDEO.play();
-            loadingIndicator.style.display = 'none';
+            HLS_VIDEO.play().catch(e => {
+              console.log("Autoplay prevented:", e);
+            });
           });
         }
       }
@@ -212,6 +206,19 @@
       currentChannel = index;
       loadChannel(currentChannel);
     }
+
+    // WebOS TV optimization
+    document.body.addEventListener('click', function() {
+      // Force focus on body for remote control navigation
+      document.body.focus();
+    });
+
+    // Prevent default behaviors that might interfere with TV experience
+    document.addEventListener('keydown', function(e) {
+      if (e.keyCode === 8 || e.keyCode === 461) { // Back button
+        e.preventDefault();
+      }
+    });
   </script>
 </body>
 </html>
